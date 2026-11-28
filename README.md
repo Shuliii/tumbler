@@ -1,41 +1,50 @@
 # Tumbler Studio (prototype)
 
 Upload a photo or logo, chat with the AI, and get a print-ready wrap for a 20oz skinny tumbler.
-The AI is **mocked** for now (step 1 of the build plan in `CLAUDE.md`).
 
 ## Run it
 
 ```
-npm install
-npm run dev        # opens http://localhost:5173
-npm run build      # type-check + production build into dist/
+npm install                                   # once, installs frontend + backend
+cp backend/.env.example backend/.env          # then put your ANTHROPIC_API_KEY in backend/.env
+npm run dev                                   # API on :8787, app on http://localhost:5173
 ```
 
-## How it fits together
+No key or no internet? Create `frontend/.env.local` with `VITE_MOCK_AI=true` to use the offline keyword mock.
+
+Other commands: `npm run typecheck` (both sides), `npm run build` (frontend into `frontend/dist/`).
+
+## Layout
 
 ```
-photo ──► chat ──► requestDesign() ──► design recipe (JSON) ──► renderer ──► print canvas (2790×2460)
-                   (mock today,                                  draws with        ├─► 3D tumbler preview
-                    Claude later)                                the ORIGINAL      ├─► flat print view
-                                                                 photo             └─► PNG download (300 DPI)
+tumbler/
+├─ package.json        npm workspaces: runs frontend + backend together
+├─ shared/             the contract both sides use
+│  ├─ recipe.ts        the design recipe + normalizeRecipe() (validates anything an AI returns)
+│  └─ api.ts           request/response shapes of POST /api/design
+├─ frontend/           Vite + React + TypeScript + Three.js (the screen)
+│  └─ src/ai/designer.ts   calls the backend (or the mock)
+└─ backend/            Node + Express + TypeScript (holds the API key, talks to Claude)
+   ├─ .env.example     settings: ANTHROPIC_API_KEY, DESIGN_MODEL, DESIGN_EFFORT, PORT
+   └─ src/
+      ├─ server.ts     routes, error handling
+      ├─ design.ts     validates the request, calls Claude, returns { reply, recipe }
+      ├─ prompt.ts     the designer instructions Claude gets
+      ├─ schema.ts     forces Claude's answer into the recipe shape (structured output)
+      ├─ rateLimit.ts  per-visitor request limit
+      └─ config.ts     reads the environment
 ```
 
-| File | What it does |
-| --- | --- |
-| `src/recipe.ts` | **The contract.** Shape of the design recipe + `normalizeRecipe()` which validates/clamps anything an AI returns. |
-| `src/ai/designer.ts` | The single function the UI calls. Swap the mock for a `fetch()` to the backend here. |
-| `src/ai/mockDesigner.ts` | Fake AI: keyword rules ("pattern", "hearts", `add text "…"`, colours, "surprise me"). |
-| `src/render/renderWrap.ts` | Draws a recipe onto a canvas; keeps the left/right edges seamless. |
-| `src/render/exportPng.ts` | PNG download tagged as 300 DPI so print software opens it at 9.3 × 8.2 in. |
-| `src/components/Tumbler3D.tsx` | Three.js tumbler using the print canvas as its texture. |
-| `src/color.ts` | Palette extraction from the photo, colour helpers. |
+## How a chat turn works
 
-## Things to try in the chat
+```
+browser                                   backend                          Claude
+───────                                   ───────                          ──────
+photo (original stays here) ─┐
+small 1024px copy ───────────┼─► POST /api/design ─► validate ─► photo + chat + current recipe ─►
+chat + current recipe ───────┘                                    ◄─ { reply, recipe } (JSON schema)
+◄─────────────────── { reply, recipe } ◄─ normalizeRecipe()
+renderer draws recipe with the ORIGINAL photo ─► 3D preview / flat view / 300 DPI PNG
+```
 
-`add text "Best Dog Mom"` · `pink with hearts` · `make it a repeating pattern` · `photo on both sides` ·
-`full wrap` · `circle` / `arch` / `soft edges` · `bold font` · `banner` · `darker` · `surprise me`
-
-## Next (step 2)
-
-Small Node server with one endpoint: receives image + chat + current recipe, calls Claude with
-structured output matching `DesignRecipe`, returns `{ reply, recipe }`. The API key stays on the server.
+The backend runs TypeScript directly with Node (no build step); `tsc` is only used to type-check.

@@ -8,9 +8,9 @@ import '@fontsource/baloo-2/800.css';
 import '@fontsource/permanent-marker';
 import './styles.css';
 import App from './App';
+import { AdminApp } from './admin/AdminApp';
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+// Two screens in one app: /admin is the shop's order page, everything else is the designer.
+const isAdmin = location.pathname.startsWith('/admin');
+
+createRoot(document.getElementById('root')!).render(<StrictMode>{isAdmin ? <AdminApp /> : <App />}</StrictMode>);

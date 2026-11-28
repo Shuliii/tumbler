@@ -5,3 +5,6 @@ dist
 !.env.example
 *.log
 demo/
+
+# backend development storage (orders, customer photos)
+backend/data/

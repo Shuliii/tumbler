@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChatPanel } from './components/ChatPanel';
 import { PreviewPanel } from './components/PreviewPanel';
-import { ChatMessage, requestDesign } from './ai/designer';
+import { ChatMessage, USING_MOCK_AI, requestDesign } from './ai/designer';
 import { BackgroundRecipe, DesignRecipe, WRAP, normalizeRecipe } from './recipe';
 import { readableOn } from './color';
 import { UploadedImage, loadUploadedImage } from './image';
 import { RenderStats, drawWrap, prepareFonts } from './render/renderWrap';
 import { downloadPng } from './render/exportPng';
+import { createOrder, uploadPhoto } from './api';
+import { OrderDialog } from './components/OrderDialog';
 
 let nextId = 1;
 const msg = (role: ChatMessage['role'], text: string, imageUrl?: string): ChatMessage => ({ id: String(nextId++), role, text, imageUrl });
@@ -31,6 +33,9 @@ export default function App() {
   const [recipe, setRecipe] = useState<DesignRecipe | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const [busy, setBusy] = useState(false);
+  const [ordering, setOrdering] = useState(false);
+  /** The uploaded photo's server id, so re-ordering the same photo doesn't upload it twice. */
+  const uploadedRef = useRef<{ image: UploadedImage; photoId: string } | null>(null);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
 
@@ -112,6 +117,18 @@ export default function App() {
     });
   }
 
+  async function handleOrder(name: string, whatsapp: string) {
+    if (!recipe) throw new Error('There is no design to order yet.');
+    let photoId: string | null = null;
+    if (image) {
+      if (uploadedRef.current?.image !== image) {
+        uploadedRef.current = { image, photoId: await uploadPhoto(image.file, image.el) };
+      }
+      photoId = uploadedRef.current.photoId;
+    }
+    return createOrder({ name, whatsapp, recipe, photoId });
+  }
+
   async function handleDownload() {
     const name = (recipe?.title ?? 'design').toLowerCase().replace(/[^a-z0-9]+/g, '-');
     try {
@@ -128,7 +145,7 @@ export default function App() {
           <img src="/favicon.svg" alt="" width={22} height={22} />
           Tumbler Studio
         </div>
-        <span className="badge">Prototype · demo AI</span>
+        <span className="badge">Prototype · {USING_MOCK_AI ? 'demo AI' : 'Claude AI'}</span>
       </header>
       <main className="workspace">
         <ChatPanel messages={messages} busy={busy} hasImage={!!image} onSend={handleSend} onUpload={handleUpload} />
@@ -139,9 +156,11 @@ export default function App() {
           palette={image?.palette ?? []}
           stats={stats}
           onDownload={handleDownload}
+          onOrder={() => setOrdering(true)}
           onBackgroundChange={handleBackgroundChange}
         />
       </main>
+      {ordering && <OrderDialog onSubmit={handleOrder} onClose={() => setOrdering(false)} />}
     </div>
   );
 }

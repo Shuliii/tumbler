@@ -12,6 +12,7 @@ interface Props {
   palette: string[];
   stats: RenderStats;
   onDownload(): void;
+  onOrder(): void;
   onBackgroundChange(bg: BackgroundRecipe): void;
 }
 
@@ -23,7 +24,7 @@ function quality(ppi: number | null) {
   return { level: 'low', label: `Low resolution (${n} ppi): may print blurry, a larger original photo would help` };
 }
 
-export function PreviewPanel({ source, version, recipe, palette, stats, onDownload, onBackgroundChange }: Props) {
+export function PreviewPanel({ source, version, recipe, palette, stats, onDownload, onOrder, onBackgroundChange }: Props) {
   const [tab, setTab] = useState<'3d' | 'flat'>('3d');
   const [autoRotate, setAutoRotate] = useState(true);
   const [seamCheck, setSeamCheck] = useState(false);
@@ -79,9 +80,17 @@ export function PreviewPanel({ source, version, recipe, palette, stats, onDownlo
             {q && <span className={`quality quality-${q.level}`}>{q.label}</span>}
           </div>
         </div>
-        <button className="download-btn" disabled={!recipe} onClick={onDownload}>
-          Download print PNG
-        </button>
+        <div className="foot-actions">
+          {/* Customers never get the full-res print file; this button is for development only. */}
+          {import.meta.env.DEV && (
+            <button className="secondary-btn" disabled={!recipe} onClick={onDownload} title="Development only">
+              Download PNG (dev)
+            </button>
+          )}
+          <button className="download-btn" disabled={!recipe} onClick={onOrder}>
+            Order this design
+          </button>
+        </div>
       </div>
 
       {recipe && (

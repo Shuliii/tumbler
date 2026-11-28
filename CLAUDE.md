@@ -76,13 +76,32 @@ folder?), product list and sizes.
 1. **Frontend with mocked AI** (done): chat panel (upload + talk to the AI)
    and preview panel (3D tumbler, flat print view with seam check, background
    picker, download 300 DPI PNG).
-2. **Backend** (next): small Node server that sends the image + chat to Claude
-   and returns the recipe JSON (structured output), replacing the mock in
-   `src/ai/designer.ts`. Holds the API key.
-3. **Shop features:** QR code so customers upload photos from their phone to
-   the shop laptop; Order form + WhatsApp link; staff Orders page with Print
-   (hot folder); per-shop product sizes; Indonesian UI; photo auto-delete.
+2. **Backend** (built 28 Nov 2026, needs a first real test with an API key):
+   Express server, `POST /api/design` sends a 1024 px copy of the photo + chat
+   + current recipe to Claude with a JSON-schema structured output and returns
+   `{ reply, recipe }`. Model and effort are settings (`DESIGN_MODEL`,
+   `DESIGN_EFFORT` in `backend/.env`; don't use `CLAUDE_*` names, Claude Code
+   sets `CLAUDE_EFFORT`). Plan: compare Opus 5.5 vs Haiku 5.5 on real photos,
+   then pick. `VITE_MOCK_AI=true` keeps the offline mock available.
+3. **Shop features.** Done (rough, 28 Nov 2026): customer "Order this design"
+   (name + WhatsApp → code TB-0001 + wa.me link to `SHOP_WHATSAPP`), original
+   photo uploaded to `POST /api/photos`; admin page at `/admin` (list, filter,
+   search, detail with 3D/flat, mark paid, Print = PNG download only when
+   paid, printed/done/cancel, notes). Storage is behind interfaces
+   (`backend/src/storage/`): JSON file + local folder in `backend/data/` for
+   now; MySQL (owner's k8s cluster) and S3-compatible storage (MinIO or R2)
+   later. **No login yet**: `requireStaff` in `backend/src/auth.ts` is a
+   pass-through; add auth there before exposing /api/admin publicly.
+   Still to do: QR phone upload, hot-folder printing, per-shop product sizes,
+   Indonesian UI, photo auto-delete (k8s CronJob), remove the customer
+   "Download PNG" button once ordering is live.
 4. **Machine-specific output** once the machine type is known (see above).
 
-Environment: Windows, Node 26, npm 11. Stack: Vite + React + TypeScript,
-Three.js, small Node server for the Claude call.
+Environment: Windows, Node 26, npm 11.
+
+Repo layout (npm workspaces): `frontend/` (Vite + React + TypeScript +
+Three.js), `backend/` (Node + Express + TypeScript, run directly by Node's
+type stripping: relative imports need the `.ts` extension and type-only
+imports must use `import type`), `shared/` (recipe contract + API types used
+by both). `npm run dev` at the root starts both; `npm run typecheck` checks
+both.
